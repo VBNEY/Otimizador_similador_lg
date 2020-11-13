@@ -53,12 +53,39 @@ unique(seqling$grupo_aco)
 seqling$SGF<-ifelse(seqling$grupo_aco !='DEMAIS',seqling$SGF,0)
 seqlingbk<-seqling
 
+#Uniao da tabela da sequencia de lingotamento descasando a linha-----------------------------------------------------------------------------------------------------------------------------------------
+seqlingbk<-seqling
+
+seqling2<-seqling
+seqling2$seqid<-seqling2$seqid-1
+for (nome in names(seqling2)){names(seqling2)[names(seqling2) ==nome]<-paste0(nome,'_post')}
+
+#JOIN COM LINHAS DESCASADAS
+seqlingfim<- merge(seqling,seqling2, by.x = "seqid" , by.y = "seqid_post")
+str(seqlingfim)
+
+#GARANTE QUE AS LINHAS SÃO DE FATO CONSECUTIVAS
+seqlingfim<-seqlingfim[seqlingfim[,'Veio']==seqlingfim[,'Veio_post'] & 
+                         seqlingfim[,'Cod_seq']==seqlingfim[,'Cod_seq_post'],]
+
+
+#dataframe que atribui a largura posterior ao aco anterior para testar combinações comuns
+considerar_posterior<-T
+temp_posterior<-seqlingfim[,c('Placao','grupo_aco','LGBQ_post')]
+names(temp_posterior)[names(temp_posterior) =='LGBQ_post']<-'LGBQ'
+
 
 #agregação sgf e lg----------------------------------------------------------------------------------------------------
-sgf_lg<-aggregate(Placao ~  grupo_aco + LGBQ,seqling,FUN=length)
+if(considerar_posterior==T){
+  temp_aggregado<-rbind(temp_posterior,seqling[,c('Placao','grupo_aco','LGBQ')])
+}else{
+  temp_aggregado<-seqling}
+
+sgf_lg<-aggregate(Placao ~  grupo_aco + LGBQ,temp_aggregado,FUN=length)
 sgf_lg<-sgf_lg[order(sgf_lg[,'grupo_aco'],sgf_lg[,'LGBQ']),]
 names(sgf_lg)[names(sgf_lg) =='Placao']<-'Peso'
 names(sgf_lg)[names(sgf_lg) =='LGBQ']<-'lg_infln_bq'
+rm(temp_aggregado)
 
 #coloca o volume do BC também nos demais, melhorando o resultado de troca de distribuidor
 if(1==2){
@@ -72,6 +99,7 @@ if(1==2){
 
 #SALVA O ARQUIVO PARA PROCESSAMENTO------------------
 write.table(sgf_lg, file="D:/Agrupamento LG/Geral.txt",row.names=F,sep='\t',dec = ".")
+
 
 
 # TODO: Add comment
@@ -193,9 +221,13 @@ if(exists("df_redmax")){rm("df_redmax")}
 ################################
 ################################
       #Loop do Gridsearch
-reducao_grids<-c(16,18,20,22)
-reducao_grid<-18
-#for(reducao_grid in reducao_grids){
+
+for(reducao_grid_loop in c(16,18,20,22)){
+  print(reducao_grid_loop)
+  for(Aumentar_media_loop in c(0,1)){
+    print(Aumentar_media_loop)
+    for(Aumentar_red_loop in c(-10,-5,0)){
+      print(Aumentar_red_loop)
 ################################
 ################################
 ################################
@@ -220,12 +252,12 @@ if(proposta_agrupamento=='LTQ'){
   
 }else{
   
-  df_UBC<-data.frame(Arquivo='UBC',Red_min_fx1 =16,Red_min_fx2 =16,Red_min_fx3 =16,Red_max_fx1 =85,Red_max_fx2 =75,Red_max_fx3 =75,Incerteza=12,Tol_agrup=1,Lg_tran=1490,Lg_tran2=1729,IL=40,Aumentar_media =0,stringsAsFactors = F)
-  df_BC<-data.frame(Arquivo='BC',Red_min_fx1 =16,Red_min_fx2 =18,Red_min_fx3 =18,Red_max_fx1 =75,Red_max_fx2 =62,Red_max_fx3 =62,Incerteza=12,Tol_agrup=1,Lg_tran=1490,Lg_tran2=1580,IL=40,Aumentar_media =0,stringsAsFactors = F)
-  df_Q7<-data.frame(Arquivo='Q7',Red_min_fx1 =16,Red_min_fx2 =16,Red_min_fx3 =16,Red_max_fx1 =75,Red_max_fx2 =75,Red_max_fx3 =75,Incerteza=12,Tol_agrup=1,Lg_tran=1490,Lg_tran2=1490,IL=40,Aumentar_media =0,stringsAsFactors = F)
-  df_BS<-data.frame(Arquivo='BS',Red_min_fx1 =16,Red_min_fx2 =16,Red_min_fx3 =16,Red_max_fx1 =75,Red_max_fx2 =75,Red_max_fx3 =75,Incerteza=12,Tol_agrup=1,Lg_tran=1490,Lg_tran2=1490,IL=40,Aumentar_media =0,stringsAsFactors = F)
-  df_TRIP<-data.frame(Arquivo='TRIP',Red_min_fx1 =12,Red_min_fx2 =12,Red_min_fx3 =12,Red_max_fx1 =42,Red_max_fx2 =42,Red_max_fx3 =42,Incerteza=12,Tol_agrup=1,Lg_tran=1490,Lg_tran2=1490,IL=40,Aumentar_media =0,stringsAsFactors = F)
-  df_DEMAIS<-data.frame(Arquivo='DEMAIS',Red_min_fx1 =18,Red_min_fx2 =18,Red_min_fx3 =18,Red_max_fx1 =62,Red_max_fx2 =62,Red_max_fx3 =62,Incerteza=12,Tol_agrup=1,Lg_tran=1490,Lg_tran2=1490,IL=40,Aumentar_media =1,stringsAsFactors = F)
+  df_UBC<-data.frame(Arquivo='UBC',Red_min_fx1 =reducao_grid_loop,Red_min_fx2 =16,Red_min_fx3 =16,Red_max_fx1 =85+Aumentar_red_loop,Red_max_fx2 =75+Aumentar_red_loop,Red_max_fx3 =75+Aumentar_red_loop,Incerteza=12,Tol_agrup=1,Lg_tran=1490,Lg_tran2=1729,IL=40,Aumentar_media =Aumentar_media_loop,stringsAsFactors = F)
+  df_BC<-data.frame(Arquivo='BC',Red_min_fx1 =reducao_grid_loop,Red_min_fx2 =18,Red_min_fx3 =18,Red_max_fx1 =75+Aumentar_red_loop,Red_max_fx2 =62+Aumentar_red_loop,Red_max_fx3 =62+Aumentar_red_loop,Incerteza=12,Tol_agrup=1,Lg_tran=1490,Lg_tran2=1580,IL=40,Aumentar_media =Aumentar_media_loop,stringsAsFactors = F)
+  df_Q7<-data.frame(Arquivo='Q7',Red_min_fx1 =reducao_grid_loop,Red_min_fx2 =16,Red_min_fx3 =16,Red_max_fx1 =75+Aumentar_red_loop,Red_max_fx2 =75+Aumentar_red_loop,Red_max_fx3 =75+Aumentar_red_loop,Incerteza=12,Tol_agrup=1,Lg_tran=1490,Lg_tran2=1490,IL=40,Aumentar_media =Aumentar_media_loop,stringsAsFactors = F)
+  df_BS<-data.frame(Arquivo='BS',Red_min_fx1 =reducao_grid_loop,Red_min_fx2 =16,Red_min_fx3 =16,Red_max_fx1 =75+Aumentar_red_loop,Red_max_fx2 =75+Aumentar_red_loop,Red_max_fx3 =75+Aumentar_red_loop,Incerteza=12,Tol_agrup=1,Lg_tran=1490,Lg_tran2=1490,IL=40,Aumentar_media =Aumentar_media_loop,stringsAsFactors = F)
+  df_TRIP<-data.frame(Arquivo='TRIP',Red_min_fx1 =12,Red_min_fx2 =12,Red_min_fx3 =12,Red_max_fx1 =42,Red_max_fx2 =42,Red_max_fx3 =42,Incerteza=12,Tol_agrup=1,Lg_tran=1490,Lg_tran2=1490,IL=40,Aumentar_media =Aumentar_media_loop,stringsAsFactors = F)
+  df_DEMAIS<-data.frame(Arquivo='DEMAIS',Red_min_fx1 =reducao_grid_loop,Red_min_fx2 =18,Red_min_fx3 =18,Red_max_fx1 =62+Aumentar_red_loop,Red_max_fx2 =62+Aumentar_red_loop,Red_max_fx3 =62+Aumentar_red_loop,Incerteza=12,Tol_agrup=1,Lg_tran=1490,Lg_tran2=1490,IL=40,Aumentar_media =Aumentar_media_loop,stringsAsFactors = F)
   df_redmax<-rbind(df_UBC,df_BC,df_Q7,df_BS,df_TRIP,df_DEMAIS)
   
 }
@@ -459,23 +491,6 @@ if(length(aco_disponíveis)!=length(df_redmax$Arquivo)){
 
 
 
-
-#Uniao da tabela da sequencia de lingotamento descasando a linha-----------------------------------------------------------------------------------------------------------------------------------------
-seqlingbk<-seqling
-
-seqling2<-seqling
-seqling2$seqid<-seqling2$seqid-1
-for (nome in names(seqling2)){names(seqling2)[names(seqling2) ==nome]<-paste0(nome,'_post')}
-
-#JOIN COM LINHAS DESCASADAS
-seqlingfim<- merge(seqling,seqling2, by.x = "seqid" , by.y = "seqid_post")
-str(seqlingfim)
-
-#GARANTE QUE AS LINHAS SÃO DE FATO CONSECUTIVAS
-seqlingfim<-seqlingfim[seqlingfim[,'Veio']==seqlingfim[,'Veio_post'] & 
-                         seqlingfim[,'Cod_seq']==seqlingfim[,'Cod_seq_post'],]
-
-
 #CARREGAMENTO PARA PREPARAR TABELA DO PADRÃO COM LARGURAS DE BQ-----------------------------------------------
 BD = 'D:/Agrupamento LG/otimizado_processado_geral.csv'
 dataset <- read.table(file = BD, header = TRUE, sep=';',dec = ".", stringsAsFactors = FALSE)
@@ -542,7 +557,7 @@ ACOS<-unique(seqlingfim[,'grupo_aco'])
 campos<-c('DT.ling.','Placao','Placao_post','PdCST','PdCST_post','SGF','SGF_post','lg_infln_placa','lg_infln_placa_post','lgplacao.x','lgplacao.y','LGBQ','LGBQ_post','grupo_aco','grupo_aco_post','cd_facc','cd_facc_post','id_mix','id_TD','parametro.x')
 
 
-df_resumo<-data.frame(aco='',ML_simulado=0.0,ML_real=0.0,MLvarsim_real=0.0,MLmenor40simul=0.0,MLmenor40real=0.0,avg_simulado=0.0,avg_real=0.0,reducao_sim=0.0,reducao_real=0.0,Parametros='',stringsAsFactors = F)
+df_resumo<-data.frame(aco='',ML_simulado=0.0,ML_real=0.0,MLvarsim_real=0.0,MLmenor40simul=0.0,MLmenor40real=0.0,avg_simulado=0.0,avg_real=0.0,reducao_sim=0.0,reducao_real=0.0,N_Lg=0.0,Parametros='',stringsAsFactors = F)
 if(exists("df_resumo_temp")){rm("df_resumo_temp")}
 for(aco in c(ACOS,'GERAL')){
   if(aco!='GERAL'){
@@ -552,6 +567,13 @@ for(aco in c(ACOS,'GERAL')){
   
   resultados<-seqlingfim[vetor,campos]
   TOTAL<-NROW(resultados)
+  
+  if(aco=='GERAL'){
+    npl_dist<-NROW(dataset)  
+  }else{
+    npl_dist<-NROW(dataset[dataset$aco==aco,])  
+  }
+  
   
   ML_simulado<-sum(resultados$lgplacao.x!=resultados$lgplacao.y)
   ML_real<-sum(resultados$lg_infln_placa!=resultados$lg_infln_placa_post)
@@ -568,7 +590,9 @@ for(aco in c(ACOS,'GERAL')){
   avg_simulado<-round(mean(resultados$lgplacao.x),2)
   avg_real<-round(mean(resultados$lg_infln_placa),2)
   
-  df_resumo_temp<-data.frame(aco=aco,ML_simulado=ML_simulado,ML_real=ML_real,MLvarsim_real=MLvarsim_real,MLmenor40simul=MLmenor40simul,MLmenor40real=MLmenor40real,avg_simulado=avg_simulado,avg_real=avg_real,reducao_sim=reducao_sim,reducao_real=reducao_real,Parametros=parametro,stringsAsFactors = F)
+  df_resumo_temp<-data.frame(aco=aco,ML_simulado=ML_simulado,ML_real=ML_real,MLvarsim_real=MLvarsim_real,MLmenor40simul=MLmenor40simul,MLmenor40real=MLmenor40real,
+                             avg_simulado=avg_simulado,avg_real=avg_real,reducao_sim=reducao_sim,reducao_real=reducao_real,N_Lg=npl_dist,
+                             Parametros=parametro,stringsAsFactors = F)
   df_resumo<-rbind(df_resumo,df_resumo_temp)
   df_resumo<-df_resumo[df_resumo[,2]>0,]
 }
@@ -587,7 +611,9 @@ write.table(tables, file=arquivo_nome,row.names=F,sep=';',dec = ",")
 ################################
 ################################
 ################################
-#}
+    }
+  }
+}
 #Loop do Gridsearch linha 192
 ################################
 ################################
